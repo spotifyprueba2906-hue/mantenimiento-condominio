@@ -1,0 +1,186 @@
+// ============================================
+// Configuración de Base de Datos - Prisma
+// Sistema de Mantenimiento para Condominio
+// ============================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// MODELOS DE BASE DE DATOS
+// ============================================
+
+/// Usuarios del sistema (administradores y propietarios)
+model Usuario {
+  id                String       @id @default(uuid())
+  email             String       @unique
+  passwordHash      String       @map("password_hash")
+  nombre            String
+  rol               Rol          @default(PROPIETARIO)
+  departamentoId    String?      @map("departamento_id")
+  passwordCambiada  Boolean      @default(false) @map("password_cambiada")
+  activo            Boolean      @default(true)
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+  
+  // Relaciones
+  departamento      Departamento? @relation(fields: [departamentoId], references: [id])
+  refreshTokens     RefreshToken[]
+
+  @@map("usuarios")
+}
+
+/// Tokens de refresco para sesiones seguras
+model RefreshToken {
+  id          String   @id @default(uuid())
+  token       String   @unique
+  usuarioId   String   @map("usuario_id")
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  usuario     Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+/// Departamentos del condominio
+model Departamento {
+  id                  String   @id @default(uuid())
+  numero              String
+  torre               String?
+  piso                String?
+  propietarioNombre   String   @map("propietario_nombre")
+  propietarioEmail    String?  @map("propietario_email")
+  propietarioTelefono String?  @map("propietario_telefono")
+  activo              Boolean  @default(true)
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+  
+  // Relaciones
+  usuarios            Usuario[]
+  mantenimientos      Mantenimiento[]
+  sugerencias         Sugerencia[]
+  reportes            ReportePDF[]
+
+  @@unique([numero, torre])
+  @@map("departamentos")
+}
+
+/// Registros de mantenimiento (semanal/mensual)
+model Mantenimiento {
+  id              String              @id @default(uuid())
+  titulo          String
+  descripcion     String
+  tipo            TipoMantenimiento   @default(SEMANAL)
+  area            AreaMantenimiento   @default(COMUN)
+  departamentoId  String?             @map("departamento_id")
+  fechaInicio     DateTime            @map("fecha_inicio")
+  fechaFin        DateTime?           @map("fecha_fin")
+  estado          EstadoMantenimiento @default(PENDIENTE)
+  responsable     String?
+  costo           Decimal?            @db.Decimal(10, 2)
+  notas           String?
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+  
+  // Relaciones
+  departamento    Departamento?       @relation(fields: [departamentoId], references: [id])
+  imagenes        Imagen[]
+
+  @@index([tipo, area])
+  @@index([fechaInicio])
+  @@map("mantenimientos")
+}
+
+/// Imágenes asociadas a mantenimientos
+model Imagen {
+  id                String                 @id @default(uuid())
+  mantenimientoId   String                 @map("mantenimiento_id")
+  urlCloudinary     String                 @map("url_cloudinary")
+  publicId          String                 @map("public_id")
+  descripcion       String?
+  categoria         CategoriaMantenimiento @default(OTRA)
+  categoriaOtra     String?                @map("categoria_otra")
+  orden             Int                    @default(0)
+  createdAt         DateTime               @default(now()) @map("created_at")
+  
+  // Relaciones
+  mantenimiento     Mantenimiento @relation(fields: [mantenimientoId], references: [id], onDelete: Cascade)
+
+  @@map("imagenes")
+}
+
+/// Sugerencias de propietarios
+model Sugerencia {
+  id              String       @id @default(uuid())
+  mensaje         String
+  departamentoId  String       @map("departamento_id")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  
+  // Relaciones
+  departamento    Departamento @relation(fields: [departamentoId], references: [id])
+
+  @@map("sugerencias")
+}
+
+/// Reportes PDF generados semanalmente
+model ReportePDF {
+  id              String        @id @default(uuid())
+  tipo            TipoReporte
+  semanaInicio    DateTime      @map("semana_inicio")
+  semanaFin       DateTime      @map("semana_fin")
+  urlPdf          String        @map("url_pdf")
+  departamentoId  String?       @map("departamento_id")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  
+  // Relaciones
+  departamento    Departamento? @relation(fields: [departamentoId], references: [id])
+
+  @@map("reportes_pdf")
+}
+
+// ============================================
+// ENUMERACIONES
+// ============================================
+
+enum Rol {
+  ADMIN
+  PROPIETARIO
+}
+
+enum TipoMantenimiento {
+  SEMANAL
+  MENSUAL
+  EMERGENCIA
+}
+
+enum AreaMantenimiento {
+  COMUN
+  DEPARTAMENTO
+}
+
+enum EstadoMantenimiento {
+  PENDIENTE
+  EN_PROGRESO
+  COMPLETADO
+  CANCELADO
+}
+
+enum CategoriaMantenimiento {
+  REZANES
+  IMPERMEABILIZACION
+  PINTURA
+  LIMPIEZA
+  OTRA
+}
+
+enum TipoReporte {
+  GENERAL
+  DEPARTAMENTO
+}
