@@ -9,18 +9,29 @@ import {
     Menu,
     X,
     FileText,
-    MessageSquare
+    MessageSquare,
+    ChevronDown
 } from 'lucide-react'
 import { useState } from 'react'
 
 export default function DashboardLayout() {
-    const { user, logout } = useAuth()
+    const { user, logout, departamentoActivo, cambiarDepartamento } = useAuth()
     const navigate = useNavigate()
     const [sidebarOpen, setSidebarOpen] = useState(false)
+    const [deptSelectorOpen, setDeptSelectorOpen] = useState(false)
 
     const handleLogout = async () => {
         await logout()
         navigate('/login')
+    }
+
+    const handleCambiarDepartamento = async (deptoId) => {
+        try {
+            await cambiarDepartamento(deptoId)
+            setDeptSelectorOpen(false)
+        } catch (error) {
+            console.error('Error cambiando departamento:', error)
+        }
     }
 
     const navItems = [
@@ -39,6 +50,9 @@ export default function DashboardLayout() {
         navItems.push({ to: '/departamentos', icon: Building2, label: 'Departamentos' })
         navItems.push({ to: '/admin/sugerencias', icon: MessageSquare, label: 'Buzón Sugerencias' })
     }
+
+    // Verificar si el usuario tiene múltiples departamentos
+    const tieneMultiplesDeptos = user?.departamentos?.length > 1
 
     return (
         <div className="app-layout">
@@ -59,6 +73,84 @@ export default function DashboardLayout() {
                         <span>Grupo Ingcor</span>
                     </div>
                 </div>
+
+                {/* Selector de departamento para propietarios con múltiples deptos */}
+                {user?.rol === 'PROPIETARIO' && tieneMultiplesDeptos && (
+                    <div style={{ padding: '0 var(--spacing-4)', marginBottom: 'var(--spacing-3)' }}>
+                        <div
+                            onClick={() => setDeptSelectorOpen(!deptSelectorOpen)}
+                            style={{
+                                padding: 'var(--spacing-3)',
+                                background: 'linear-gradient(135deg, rgba(0,182,122,0.1), rgba(14,165,233,0.1))',
+                                borderRadius: 'var(--radius-lg)',
+                                cursor: 'pointer',
+                                border: '1px solid var(--color-gray-200)',
+                                transition: 'all 0.2s ease'
+                            }}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <div>
+                                    <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-gray-500)', marginBottom: 2 }}>
+                                        Departamento activo
+                                    </p>
+                                    <p style={{ fontWeight: 600, color: 'var(--color-gray-800)' }}>
+                                        {departamentoActivo?.numero}
+                                        {departamentoActivo?.torre && ` - Torre ${departamentoActivo.torre}`}
+                                    </p>
+                                </div>
+                                <ChevronDown
+                                    size={18}
+                                    style={{
+                                        transform: deptSelectorOpen ? 'rotate(180deg)' : 'rotate(0)',
+                                        transition: 'transform 0.2s ease'
+                                    }}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Dropdown de departamentos */}
+                        {deptSelectorOpen && (
+                            <div style={{
+                                marginTop: 'var(--spacing-2)',
+                                background: 'white',
+                                borderRadius: 'var(--radius-lg)',
+                                border: '1px solid var(--color-gray-200)',
+                                boxShadow: 'var(--shadow-lg)',
+                                overflow: 'hidden'
+                            }}>
+                                {user.departamentos.map(depto => (
+                                    <div
+                                        key={depto.id}
+                                        onClick={() => handleCambiarDepartamento(depto.id)}
+                                        style={{
+                                            padding: 'var(--spacing-3)',
+                                            cursor: 'pointer',
+                                            background: depto.id === departamentoActivo?.id ? 'var(--color-gray-100)' : 'transparent',
+                                            borderBottom: '1px solid var(--color-gray-100)',
+                                            transition: 'background 0.2s ease'
+                                        }}
+                                        onMouseEnter={(e) => e.target.style.background = 'var(--color-gray-50)'}
+                                        onMouseLeave={(e) => e.target.style.background = depto.id === departamentoActivo?.id ? 'var(--color-gray-100)' : 'transparent'}
+                                    >
+                                        <p style={{ fontWeight: depto.id === departamentoActivo?.id ? 600 : 400 }}>
+                                            {depto.numero}
+                                            {depto.torre && ` - Torre ${depto.torre}`}
+                                        </p>
+                                        {depto.esPrincipal && (
+                                            <span style={{
+                                                fontSize: 'var(--font-size-xs)',
+                                                color: 'var(--color-primary)',
+                                                fontWeight: 500
+                                            }}>
+                                                Principal
+                                            </span>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 <nav className="sidebar-nav">
                     {navItems.map(item => (

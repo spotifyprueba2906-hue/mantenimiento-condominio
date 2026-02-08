@@ -24,17 +24,31 @@ model Usuario {
   passwordHash      String       @map("password_hash")
   nombre            String
   rol               Rol          @default(PROPIETARIO)
-  departamentoId    String?      @map("departamento_id")
   passwordCambiada  Boolean      @default(false) @map("password_cambiada")
   activo            Boolean      @default(true)
   createdAt         DateTime     @default(now()) @map("created_at")
   updatedAt         DateTime     @updatedAt @map("updated_at")
   
-  // Relaciones
-  departamento      Departamento? @relation(fields: [departamentoId], references: [id])
+  // Relaciones - Un usuario puede tener múltiples departamentos
+  departamentos     UsuarioDepartamento[]
   refreshTokens     RefreshToken[]
 
   @@map("usuarios")
+}
+
+/// Relación muchos a muchos entre Usuario y Departamento
+model UsuarioDepartamento {
+  id             String       @id @default(uuid())
+  usuarioId      String       @map("usuario_id")
+  departamentoId String       @map("departamento_id")
+  esPrincipal    Boolean      @default(false) @map("es_principal")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  
+  usuario        Usuario      @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  departamento   Departamento @relation(fields: [departamentoId], references: [id], onDelete: Cascade)
+  
+  @@unique([usuarioId, departamentoId])
+  @@map("usuario_departamentos")
 }
 
 /// Tokens de refresco para sesiones seguras
@@ -64,7 +78,7 @@ model Departamento {
   updatedAt           DateTime @updatedAt @map("updated_at")
   
   // Relaciones
-  usuarios            Usuario[]
+  usuarios            UsuarioDepartamento[]
   mantenimientos      Mantenimiento[]
   sugerencias         Sugerencia[]
   reportes            ReportePDF[]

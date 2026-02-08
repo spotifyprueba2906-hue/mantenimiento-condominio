@@ -6,6 +6,7 @@ const AuthContext = createContext(null)
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null)
     const [isLoading, setIsLoading] = useState(true)
+    const [departamentoActivo, setDepartamentoActivo] = useState(null)
 
     // Cargar usuario al inicio
     useEffect(() => {
@@ -19,7 +20,15 @@ export function AuthProvider({ children }) {
 
             try {
                 const response = await api.get('/auth/me')
-                setUser(response.data.data)
+                const userData = response.data.data
+                setUser(userData)
+
+                // Establecer departamento activo
+                if (userData.departamentoActivo) {
+                    setDepartamentoActivo(userData.departamentoActivo)
+                } else if (userData.departamentos?.length > 0) {
+                    setDepartamentoActivo(userData.departamentos[0])
+                }
             } catch (error) {
                 // Token inválido o expirado
                 localStorage.removeItem('accessToken')
@@ -40,6 +49,13 @@ export function AuthProvider({ children }) {
         localStorage.setItem('refreshToken', refreshToken)
         setUser(usuario)
 
+        // Establecer departamento activo
+        if (usuario.departamentoActivo) {
+            setDepartamentoActivo(usuario.departamentoActivo)
+        } else if (usuario.departamentos?.length > 0) {
+            setDepartamentoActivo(usuario.departamentos[0])
+        }
+
         return usuario
     }
 
@@ -53,6 +69,7 @@ export function AuthProvider({ children }) {
             localStorage.removeItem('accessToken')
             localStorage.removeItem('refreshToken')
             setUser(null)
+            setDepartamentoActivo(null)
         }
     }
 
@@ -60,6 +77,24 @@ export function AuthProvider({ children }) {
         await api.post('/auth/cambiar-password', { passwordActual, passwordNueva })
         // Después de cambiar la contraseña, actualizar el usuario
         setUser(prev => ({ ...prev, passwordCambiada: true }))
+    }
+
+    const cambiarDepartamento = async (departamentoId) => {
+        const response = await api.post('/auth/cambiar-departamento', { departamentoId })
+        const { departamentoActivo: nuevoDepartamento } = response.data.data
+        setDepartamentoActivo(nuevoDepartamento)
+
+        // Actualizar en la lista de departamentos del usuario
+        setUser(prev => ({
+            ...prev,
+            departamentos: prev.departamentos.map(d => ({
+                ...d,
+                esPrincipal: d.id === departamentoId
+            })),
+            departamentoActivo: nuevoDepartamento
+        }))
+
+        return nuevoDepartamento
     }
 
     const updateUser = (userData) => {
@@ -70,9 +105,11 @@ export function AuthProvider({ children }) {
         <AuthContext.Provider value={{
             user,
             isLoading,
+            departamentoActivo,
             login,
             logout,
             cambiarPassword,
+            cambiarDepartamento,
             updateUser
         }}>
             {children}

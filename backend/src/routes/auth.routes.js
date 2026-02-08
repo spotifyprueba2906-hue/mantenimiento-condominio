@@ -73,4 +73,14 @@ router.post(
     authController.registrarAdmin
 );
 
+/**
+ * POST /api/auth/cambiar-departamento
+ * Cambiar departamento activo (para usuarios con múltiples departamentos)
+ */
+router.post(
+    '/cambiar-departamento',
+    authenticateToken,
+    authController.cambiarDepartamento
+);
+
 module.exports = router;

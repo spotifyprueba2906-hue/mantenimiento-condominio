@@ -15,12 +15,17 @@ const login = async (req, res, next) => {
     try {
         const { email, password } = req.body;
 
-        // Buscar usuario
+        // Buscar usuario con todos sus departamentos
         const usuario = await prisma.usuario.findUnique({
             where: { email },
             include: {
-                departamento: {
-                    select: { id: true, numero: true, torre: true }
+                departamentos: {
+                    include: {
+                        departamento: {
+                            select: { id: true, numero: true, torre: true, piso: true }
+                        }
+                    },
+                    orderBy: { esPrincipal: 'desc' }
                 }
             }
         });
@@ -57,6 +62,15 @@ const login = async (req, res, next) => {
             }
         });
 
+        // Formatear departamentos para la respuesta
+        const departamentos = usuario.departamentos.map(ud => ({
+            ...ud.departamento,
+            esPrincipal: ud.esPrincipal
+        }));
+
+        // Departamento activo (el principal o el primero)
+        const departamentoActivo = departamentos.find(d => d.esPrincipal) || departamentos[0] || null;
+
         res.json({
             success: true,
             message: 'Login exitoso',
@@ -69,7 +83,8 @@ const login = async (req, res, next) => {
                     nombre: usuario.nombre,
                     rol: usuario.rol,
                     passwordCambiada: usuario.passwordCambiada,
-                    departamento: usuario.departamento
+                    departamentos,
+                    departamentoActivo
                 }
             }
         });
@@ -184,15 +199,32 @@ const getMe = async (req, res, next) => {
                 nombre: true,
                 rol: true,
                 passwordCambiada: true,
-                departamento: {
-                    select: { id: true, numero: true, torre: true, piso: true }
+                departamentos: {
+                    include: {
+                        departamento: {
+                            select: { id: true, numero: true, torre: true, piso: true }
+                        }
+                    },
+                    orderBy: { esPrincipal: 'desc' }
                 }
             }
         });
 
+        // Formatear departamentos
+        const departamentos = usuario.departamentos.map(ud => ({
+            ...ud.departamento,
+            esPrincipal: ud.esPrincipal
+        }));
+
+        const departamentoActivo = departamentos.find(d => d.esPrincipal) || departamentos[0] || null;
+
         res.json({
             success: true,
-            data: usuario
+            data: {
+                ...usuario,
+                departamentos,
+                departamentoActivo
+            }
         });
     } catch (error) {
         next(error);
@@ -293,11 +325,67 @@ const registrarAdmin = async (req, res, next) => {
     }
 };
 
+/**
+ * POST /api/auth/cambiar-departamento
+ * Cambiar departamento activo del usuario
+ */
+const cambiarDepartamento = async (req, res, next) => {
+    try {
+        const { departamentoId } = req.body;
+
+        // Verificar que el usuario tiene acceso a este departamento
+        const usuarioDepartamento = await prisma.usuarioDepartamento.findFirst({
+            where: {
+                usuarioId: req.user.id,
+                departamentoId
+            },
+            include: {
+                departamento: {
+                    select: { id: true, numero: true, torre: true, piso: true }
+                }
+            }
+        });
+
+        if (!usuarioDepartamento) {
+            return res.status(403).json({
+                success: false,
+                message: 'No tiene acceso a este departamento'
+            });
+        }
+
+        // Quitar esPrincipal de todos los departamentos del usuario
+        await prisma.usuarioDepartamento.updateMany({
+            where: { usuarioId: req.user.id },
+            data: { esPrincipal: false }
+        });
+
+        // Establecer nuevo departamento principal
+        await prisma.usuarioDepartamento.update({
+            where: { id: usuarioDepartamento.id },
+            data: { esPrincipal: true }
+        });
+
+        res.json({
+            success: true,
+            message: 'Departamento cambiado correctamente',
+            data: {
+                departamentoActivo: {
+                    ...usuarioDepartamento.departamento,
+                    esPrincipal: true
+                }
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     login,
     refreshToken,
     logout,
     getMe,
     cambiarPassword,
-    registrarAdmin
+    registrarAdmin,
+    cambiarDepartamento
 };

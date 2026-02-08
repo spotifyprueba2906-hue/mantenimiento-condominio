@@ -77,4 +77,26 @@ router.post(
     departamentosController.crearUsuarioPropietario
 );
 
+/**
+ * POST /api/departamentos/:id/asignar-usuario
+ * Asignar usuario existente a departamento (solo Admin)
+ */
+router.post(
+    '/:id/asignar-usuario',
+    requireAdmin,
+    uuidParamValidator,
+    handleValidationErrors,
+    departamentosController.asignarUsuario
+);
+
+/**
+ * DELETE /api/departamentos/:id/usuarios/:usuarioId
+ * Desasignar usuario de departamento (solo Admin)
+ */
+router.delete(
+    '/:id/usuarios/:usuarioId',
+    requireAdmin,
+    departamentosController.desasignarUsuario
+);
+
 module.exports = router;

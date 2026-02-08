@@ -197,7 +197,7 @@ const eliminar = async (req, res, next) => {
 
 /**
  * POST /api/departamentos/:id/crear-usuario
- * Crear usuario propietario para departamento
+ * Crear usuario propietario para departamento o asignar usuario existente
  */
 const crearUsuarioPropietario = async (req, res, next) => {
     try {
@@ -205,7 +205,12 @@ const crearUsuarioPropietario = async (req, res, next) => {
 
         // Obtener departamento
         const departamento = await prisma.departamento.findUnique({
-            where: { id }
+            where: { id },
+            include: {
+                usuarios: {
+                    include: { usuario: true }
+                }
+            }
         });
 
         if (!departamento) {
@@ -222,56 +227,194 @@ const crearUsuarioPropietario = async (req, res, next) => {
             });
         }
 
-        // Verificar si ya existe usuario
-        const usuarioExistente = await prisma.usuario.findFirst({
-            where: { departamentoId: id }
-        });
-
-        if (usuarioExistente) {
+        // Verificar si ya existe un usuario asociado a este departamento
+        if (departamento.usuarios.length > 0) {
             return res.status(409).json({
                 success: false,
                 message: 'Ya existe un usuario para este departamento'
             });
         }
 
-        // Generar contraseña genérica
-        const passwordGenerica = process.env.DEFAULT_OWNER_PASSWORD || 'Ingcor2024';
-        const passwordHash = await bcrypt.hash(passwordGenerica, 12);
+        // Buscar si el email ya está registrado como usuario
+        let usuario = await prisma.usuario.findUnique({
+            where: { email: departamento.propietarioEmail }
+        });
 
-        // Crear usuario
-        const usuario = await prisma.usuario.create({
+        let yaExistia = false;
+        let passwordGenerica = process.env.DEFAULT_OWNER_PASSWORD || 'Ingcor2024';
+
+        if (usuario) {
+            // Usuario ya existe, solo asignarlo al departamento
+            yaExistia = true;
+        } else {
+            // Crear nuevo usuario
+            const passwordHash = await bcrypt.hash(passwordGenerica, 12);
+
+            usuario = await prisma.usuario.create({
+                data: {
+                    email: departamento.propietarioEmail,
+                    passwordHash,
+                    nombre: departamento.propietarioNombre,
+                    rol: 'PROPIETARIO',
+                    passwordCambiada: false
+                }
+            });
+        }
+
+        // Crear relación usuario-departamento
+        const esPrimero = await prisma.usuarioDepartamento.count({
+            where: { usuarioId: usuario.id }
+        }) === 0;
+
+        await prisma.usuarioDepartamento.create({
             data: {
-                email: departamento.propietarioEmail,
-                passwordHash,
-                nombre: departamento.propietarioNombre,
-                rol: 'PROPIETARIO',
+                usuarioId: usuario.id,
                 departamentoId: id,
-                passwordCambiada: false
-            },
-            select: {
-                id: true,
-                email: true,
-                nombre: true
+                esPrincipal: esPrimero // Es principal si es su primer departamento
             }
         });
 
-        // Enviar email de bienvenida
-        try {
-            await emailService.enviarBienvenida(
-                departamento.propietarioEmail,
-                departamento.propietarioNombre,
-                `${departamento.numero}${departamento.torre ? ' - Torre ' + departamento.torre : ''}`,
-                passwordGenerica
-            );
-        } catch (emailError) {
-            console.error('Error enviando email de bienvenida:', emailError);
-            // No fallar si el email no se envía
+        // Enviar email de bienvenida solo si es usuario nuevo
+        if (!yaExistia) {
+            try {
+                await emailService.enviarBienvenida(
+                    departamento.propietarioEmail,
+                    departamento.propietarioNombre,
+                    `${departamento.numero}${departamento.torre ? ' - Torre ' + departamento.torre : ''}`,
+                    passwordGenerica
+                );
+            } catch (emailError) {
+                console.error('Error enviando email de bienvenida:', emailError);
+            }
         }
+
+        const mensaje = yaExistia
+            ? 'Departamento asignado al usuario existente.'
+            : 'Usuario propietario creado correctamente. Se envió email con credenciales.';
 
         res.status(201).json({
             success: true,
-            message: 'Usuario propietario creado correctamente. Se envió email con credenciales.',
-            data: usuario
+            message: mensaje,
+            data: {
+                id: usuario.id,
+                email: usuario.email,
+                nombre: usuario.nombre,
+                yaExistia
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * POST /api/departamentos/:id/asignar-usuario
+ * Asignar un usuario existente a un departamento (admin)
+ */
+const asignarUsuario = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { usuarioId } = req.body;
+
+        // Verificar departamento
+        const departamento = await prisma.departamento.findUnique({
+            where: { id }
+        });
+
+        if (!departamento) {
+            return res.status(404).json({
+                success: false,
+                message: 'Departamento no encontrado'
+            });
+        }
+
+        // Verificar usuario
+        const usuario = await prisma.usuario.findUnique({
+            where: { id: usuarioId }
+        });
+
+        if (!usuario) {
+            return res.status(404).json({
+                success: false,
+                message: 'Usuario no encontrado'
+            });
+        }
+
+        // Verificar si ya está asignado
+        const yaAsignado = await prisma.usuarioDepartamento.findFirst({
+            where: { usuarioId, departamentoId: id }
+        });
+
+        if (yaAsignado) {
+            return res.status(409).json({
+                success: false,
+                message: 'El usuario ya está asignado a este departamento'
+            });
+        }
+
+        // Crear asignación
+        await prisma.usuarioDepartamento.create({
+            data: {
+                usuarioId,
+                departamentoId: id,
+                esPrincipal: false
+            }
+        });
+
+        res.status(201).json({
+            success: true,
+            message: 'Usuario asignado al departamento correctamente',
+            data: {
+                usuarioId: usuario.id,
+                usuarioEmail: usuario.email,
+                departamentoId: id,
+                departamentoNumero: departamento.numero
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * DELETE /api/departamentos/:id/usuarios/:usuarioId
+ * Desasignar usuario de un departamento
+ */
+const desasignarUsuario = async (req, res, next) => {
+    try {
+        const { id, usuarioId } = req.params;
+
+        const relacion = await prisma.usuarioDepartamento.findFirst({
+            where: { usuarioId, departamentoId: id }
+        });
+
+        if (!relacion) {
+            return res.status(404).json({
+                success: false,
+                message: 'El usuario no está asignado a este departamento'
+            });
+        }
+
+        await prisma.usuarioDepartamento.delete({
+            where: { id: relacion.id }
+        });
+
+        // Si era principal, asignar otro como principal
+        if (relacion.esPrincipal) {
+            const otroDepto = await prisma.usuarioDepartamento.findFirst({
+                where: { usuarioId }
+            });
+            if (otroDepto) {
+                await prisma.usuarioDepartamento.update({
+                    where: { id: otroDepto.id },
+                    data: { esPrincipal: true }
+                });
+            }
+        }
+
+        res.json({
+            success: true,
+            message: 'Usuario desasignado del departamento'
         });
     } catch (error) {
         next(error);
@@ -284,5 +427,7 @@ module.exports = {
     crear,
     actualizar,
     eliminar,
-    crearUsuarioPropietario
+    crearUsuarioPropietario,
+    asignarUsuario,
+    desasignarUsuario
 };

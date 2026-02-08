@@ -23,7 +23,7 @@ const authenticateToken = async (req, res, next) => {
         // Verificar token
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-        // Buscar usuario en base de datos
+        // Buscar usuario con sus departamentos
         const usuario = await prisma.usuario.findUnique({
             where: { id: decoded.userId },
             select: {
@@ -31,9 +31,16 @@ const authenticateToken = async (req, res, next) => {
                 email: true,
                 nombre: true,
                 rol: true,
-                departamentoId: true,
                 passwordCambiada: true,
-                activo: true
+                activo: true,
+                departamentos: {
+                    include: {
+                        departamento: {
+                            select: { id: true, numero: true, torre: true }
+                        }
+                    },
+                    orderBy: { esPrincipal: 'desc' }
+                }
             }
         });
 
@@ -44,7 +51,30 @@ const authenticateToken = async (req, res, next) => {
             });
         }
 
-        req.user = usuario;
+        // Formatear departamentos y encontrar el activo
+        const departamentos = usuario.departamentos.map(ud => ({
+            id: ud.departamento.id,
+            numero: ud.departamento.numero,
+            torre: ud.departamento.torre,
+            esPrincipal: ud.esPrincipal
+        }));
+
+        const departamentoActivo = departamentos.find(d => d.esPrincipal) || departamentos[0] || null;
+
+        // Agregar información formateada al request
+        req.user = {
+            id: usuario.id,
+            email: usuario.email,
+            nombre: usuario.nombre,
+            rol: usuario.rol,
+            passwordCambiada: usuario.passwordCambiada,
+            activo: usuario.activo,
+            departamentos,
+            departamentoActivo,
+            // Para compatibilidad con código existente
+            departamentoId: departamentoActivo?.id || null
+        };
+
         next();
     } catch (error) {
         if (error.name === 'TokenExpiredError') {
@@ -90,6 +120,32 @@ const requirePasswordChanged = (req, res, next) => {
 };
 
 /**
+ * Verificar que el usuario tenga acceso a un departamento específico
+ */
+const requireDepartamentoAccess = (paramName = 'departamentoId') => {
+    return (req, res, next) => {
+        const departamentoId = req.params[paramName] || req.body.departamentoId;
+
+        // Admins tienen acceso a todo
+        if (req.user.rol === 'ADMIN') {
+            return next();
+        }
+
+        // Verificar que el propietario tenga acceso al departamento
+        const tieneAcceso = req.user.departamentos.some(d => d.id === departamentoId);
+
+        if (!tieneAcceso) {
+            return res.status(403).json({
+                success: false,
+                message: 'No tiene acceso a este departamento'
+            });
+        }
+
+        next();
+    };
+};
+
+/**
  * Generar tokens JWT
  */
 const generateTokens = (userId) => {
@@ -112,5 +168,6 @@ module.exports = {
     authenticateToken,
     requireAdmin,
     requirePasswordChanged,
+    requireDepartamentoAccess,
     generateTokens
 };
