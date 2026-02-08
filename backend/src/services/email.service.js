@@ -8,6 +8,12 @@ const { resend, emailTemplates } = require('../config/email');
  * Enviar email de bienvenida a propietario
  */
 const enviarBienvenida = async (email, nombre, departamento, passwordGenerica) => {
+    // Si no hay Resend configurado, solo loguear
+    if (!resend) {
+        console.log(`📧 [Email no enviado - Resend no configurado] Bienvenida para: ${email}`);
+        return { success: true, message: 'Email logged (Resend not configured)' };
+    }
+
     try {
         const template = emailTemplates.bienvenida(nombre, departamento, passwordGenerica);
 
@@ -35,6 +41,12 @@ const enviarBienvenida = async (email, nombre, departamento, passwordGenerica) =
  * Enviar notificación de nuevo mantenimiento
  */
 const enviarNotificacionMantenimiento = async (emails, titulo, descripcion, area, fecha) => {
+    // Si no hay Resend configurado, solo loguear
+    if (!resend) {
+        console.log(`📧 [Email no enviado - Resend no configurado] Notificación a: ${emails.length} destinatarios`);
+        return { enviados: 0, total: emails.length, message: 'Resend not configured' };
+    }
+
     try {
         const template = emailTemplates.nuevoMantenimiento(titulo, descripcion, area, fecha);
 
@@ -64,6 +76,12 @@ const enviarNotificacionMantenimiento = async (emails, titulo, descripcion, area
  * Enviar email de recuperación de contraseña
  */
 const enviarRecuperarPassword = async (email, nombre, token) => {
+    // Si no hay Resend configurado, solo loguear
+    if (!resend) {
+        console.log(`📧 [Email no enviado - Resend no configurado] Recuperación para: ${email}`);
+        return { success: true, message: 'Email logged (Resend not configured)' };
+    }
+
     try {
         const template = emailTemplates.recuperarPassword(nombre, token);
 
