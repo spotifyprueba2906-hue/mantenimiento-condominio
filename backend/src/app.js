@@ -62,11 +62,11 @@ const globalLimiter = rateLimit({
 
 // Rate Limiting estricto para autenticación
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 5, // máximo 5 intentos de login
+  windowMs: 5 * 60 * 1000, // 5 minutos
+  max: 20, // máximo 20 intentos de login
   message: {
     success: false,
-    message: 'Demasiados intentos de login, espere 15 minutos'
+    message: 'Demasiados intentos de login, espere 5 minutos'
   }
 });
 
