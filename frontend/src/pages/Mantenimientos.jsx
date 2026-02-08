@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import api from '../services/api'
 import {
@@ -11,7 +11,8 @@ import {
     Image as ImageIcon,
     CheckCircle,
     Clock,
-    AlertTriangle
+    AlertTriangle,
+    X
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -19,15 +20,31 @@ import toast from 'react-hot-toast'
 
 export default function Mantenimientos() {
     const { user } = useAuth()
+    const navigate = useNavigate()
     const [mantenimientos, setMantenimientos] = useState([])
     const [isLoading, setIsLoading] = useState(true)
     const [filters, setFilters] = useState({ tipo: '', area: '', estado: '' })
     const [searchTerm, setSearchTerm] = useState('')
     const [showModal, setShowModal] = useState(false)
     const [pagination, setPagination] = useState({ page: 1, totalPages: 1 })
+    const [departamentos, setDepartamentos] = useState([])
+    const [isSubmitting, setIsSubmitting] = useState(false)
+    const [formData, setFormData] = useState({
+        titulo: '',
+        descripcion: '',
+        tipo: 'SEMANAL',
+        area: 'COMUN',
+        departamentoId: '',
+        fechaInicio: format(new Date(), 'yyyy-MM-dd'),
+        responsable: '',
+        costo: ''
+    })
 
     useEffect(() => {
         loadMantenimientos()
+        if (user?.rol === 'ADMIN') {
+            loadDepartamentos()
+        }
     }, [filters, pagination.page])
 
     const loadMantenimientos = async () => {
@@ -49,6 +66,47 @@ export default function Mantenimientos() {
             toast.error('Error cargando mantenimientos')
         } finally {
             setIsLoading(false)
+        }
+    }
+
+    const loadDepartamentos = async () => {
+        try {
+            const response = await api.get('/departamentos')
+            setDepartamentos(response.data.data || [])
+        } catch (error) {
+            console.error('Error cargando departamentos:', error)
+        }
+    }
+
+    const handleSubmit = async (e) => {
+        e.preventDefault()
+        setIsSubmitting(true)
+
+        try {
+            const data = {
+                ...formData,
+                costo: formData.costo ? parseFloat(formData.costo) : null,
+                departamentoId: formData.area === 'DEPARTAMENTO' ? formData.departamentoId : null
+            }
+
+            await api.post('/mantenimientos', data)
+            toast.success('Mantenimiento creado correctamente')
+            setShowModal(false)
+            setFormData({
+                titulo: '',
+                descripcion: '',
+                tipo: 'SEMANAL',
+                area: 'COMUN',
+                departamentoId: '',
+                fechaInicio: format(new Date(), 'yyyy-MM-dd'),
+                responsable: '',
+                costo: ''
+            })
+            loadMantenimientos()
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Error creando mantenimiento')
+        } finally {
+            setIsSubmitting(false)
         }
     }
 
@@ -239,6 +297,180 @@ export default function Mantenimientos() {
                     ))}
                 </div>
             )}
+
+            {/* Modal Nuevo Mantenimiento */}
+            {showModal && (
+                <div className="modal-overlay" style={{
+                    position: 'fixed',
+                    inset: 0,
+                    background: 'rgba(0,0,0,0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000,
+                    padding: 'var(--spacing-4)'
+                }}>
+                    <div className="card" style={{
+                        width: '100%',
+                        maxWidth: 500,
+                        maxHeight: '90vh',
+                        overflow: 'auto',
+                        animation: 'fadeIn 0.2s ease'
+                    }}>
+                        <div className="card-header" style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            borderBottom: '1px solid var(--color-gray-200)',
+                            padding: 'var(--spacing-4)'
+                        }}>
+                            <h2 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 600 }}>
+                                Nuevo Mantenimiento
+                            </h2>
+                            <button
+                                onClick={() => setShowModal(false)}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
+                            >
+                                <X size={24} />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleSubmit}>
+                            <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-4)' }}>
+                                <div className="form-group">
+                                    <label className="form-label">Título *</label>
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        value={formData.titulo}
+                                        onChange={(e) => setFormData(p => ({ ...p, titulo: e.target.value }))}
+                                        required
+                                        placeholder="Ej: Limpieza de cisterna"
+                                    />
+                                </div>
+
+                                <div className="form-group">
+                                    <label className="form-label">Descripción *</label>
+                                    <textarea
+                                        className="form-input"
+                                        value={formData.descripcion}
+                                        onChange={(e) => setFormData(p => ({ ...p, descripcion: e.target.value }))}
+                                        required
+                                        rows={3}
+                                        placeholder="Describe el mantenimiento a realizar..."
+                                    />
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-4)' }}>
+                                    <div className="form-group">
+                                        <label className="form-label">Tipo *</label>
+                                        <select
+                                            className="form-input"
+                                            value={formData.tipo}
+                                            onChange={(e) => setFormData(p => ({ ...p, tipo: e.target.value }))}
+                                        >
+                                            <option value="SEMANAL">Semanal</option>
+                                            <option value="MENSUAL">Mensual</option>
+                                            <option value="EMERGENCIA">Emergencia</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label className="form-label">Área *</label>
+                                        <select
+                                            className="form-input"
+                                            value={formData.area}
+                                            onChange={(e) => setFormData(p => ({ ...p, area: e.target.value }))}
+                                        >
+                                            <option value="COMUN">Área Común</option>
+                                            <option value="DEPARTAMENTO">Departamento</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                {formData.area === 'DEPARTAMENTO' && (
+                                    <div className="form-group">
+                                        <label className="form-label">Departamento *</label>
+                                        <select
+                                            className="form-input"
+                                            value={formData.departamentoId}
+                                            onChange={(e) => setFormData(p => ({ ...p, departamentoId: e.target.value }))}
+                                            required
+                                        >
+                                            <option value="">Seleccionar departamento</option>
+                                            {departamentos.map(d => (
+                                                <option key={d.id} value={d.id}>
+                                                    {d.numero}{d.torre ? ` - Torre ${d.torre}` : ''}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+
+                                <div className="form-group">
+                                    <label className="form-label">Fecha de Inicio *</label>
+                                    <input
+                                        type="date"
+                                        className="form-input"
+                                        value={formData.fechaInicio}
+                                        onChange={(e) => setFormData(p => ({ ...p, fechaInicio: e.target.value }))}
+                                        required
+                                    />
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-4)' }}>
+                                    <div className="form-group">
+                                        <label className="form-label">Responsable</label>
+                                        <input
+                                            type="text"
+                                            className="form-input"
+                                            value={formData.responsable}
+                                            onChange={(e) => setFormData(p => ({ ...p, responsable: e.target.value }))}
+                                            placeholder="Nombre del responsable"
+                                        />
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label className="form-label">Costo ($)</label>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            className="form-input"
+                                            value={formData.costo}
+                                            onChange={(e) => setFormData(p => ({ ...p, costo: e.target.value }))}
+                                            placeholder="0.00"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style={{
+                                padding: 'var(--spacing-4)',
+                                borderTop: '1px solid var(--color-gray-200)',
+                                display: 'flex',
+                                gap: 'var(--spacing-3)',
+                                justifyContent: 'flex-end'
+                            }}>
+                                <button
+                                    type="button"
+                                    className="btn btn-secondary"
+                                    onClick={() => setShowModal(false)}
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="btn btn-primary"
+                                    disabled={isSubmitting}
+                                >
+                                    {isSubmitting ? 'Creando...' : 'Crear Mantenimiento'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
+
