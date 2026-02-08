@@ -4,7 +4,10 @@
 
 const { Resend } = require('resend');
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Resend es opcional - si no hay API key, los emails se loguean pero no se envían
+const resend = process.env.RESEND_API_KEY
+  ? new Resend(process.env.RESEND_API_KEY)
+  : null;
 
 // Plantillas de email base
 const emailTemplates = {
@@ -141,6 +144,12 @@ const emailTemplates = {
 
 // Función helper para enviar emails
 async function sendEmail({ to, subject, html }) {
+  // Si no hay Resend configurado, solo loguear
+  if (!resend) {
+    console.log(`📧 [Email no enviado - Resend no configurado] To: ${to}, Subject: ${subject}`);
+    return { success: true, message: 'Email logged (Resend not configured)' };
+  }
+
   try {
     const result = await resend.emails.send({
       from: process.env.EMAIL_FROM || 'Grupo Ingcor <noreply@grupoingcor.com>',
