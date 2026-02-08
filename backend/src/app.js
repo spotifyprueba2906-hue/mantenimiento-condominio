@@ -24,6 +24,11 @@ const { errorHandler } = require('./middleware/errorHandler');
 const app = express();
 
 // ============================================
+// CONFIGURACIÓN PARA PROXY (Render, Vercel, etc.)
+// ============================================
+app.set('trust proxy', 1);
+
+// ============================================
 // CONFIGURACIÓN DE SEGURIDAD
 // ============================================
 
