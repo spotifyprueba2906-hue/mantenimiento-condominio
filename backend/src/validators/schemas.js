@@ -123,9 +123,19 @@ const mantenimientoValidator = [
         .isIn(['COMUN', 'DEPARTAMENTO'])
         .withMessage('Área debe ser COMUN o DEPARTAMENTO'),
     body('departamentoId')
-        .optional()
-        .isUUID()
-        .withMessage('ID de departamento inválido'),
+        .optional({ nullable: true })
+        .custom((value) => {
+            // Permitir null, undefined, o string vacío
+            if (value === null || value === undefined || value === '') {
+                return true;
+            }
+            // Si tiene valor, validar que sea UUID
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+            if (!uuidRegex.test(value)) {
+                throw new Error('ID de departamento inválido');
+            }
+            return true;
+        }),
     body('fechaInicio')
         .isISO8601()
         .withMessage('Fecha de inicio inválida'),
