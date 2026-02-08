@@ -36,8 +36,7 @@ export default function Mantenimientos() {
         area: 'COMUN',
         departamentoId: '',
         fechaInicio: format(new Date(), 'yyyy-MM-dd'),
-        responsable: '',
-        costo: ''
+        responsable: ''
     })
 
     useEffect(() => {
@@ -85,12 +84,11 @@ export default function Mantenimientos() {
         try {
             const data = {
                 ...formData,
-                costo: formData.costo ? parseFloat(formData.costo) : null,
                 departamentoId: formData.area === 'DEPARTAMENTO' ? formData.departamentoId : null
             }
 
-            await api.post('/mantenimientos', data)
-            toast.success('Mantenimiento creado correctamente')
+            const response = await api.post('/mantenimientos', data)
+            toast.success('Mantenimiento creado. Ahora puedes agregar fotos.')
             setShowModal(false)
             setFormData({
                 titulo: '',
@@ -99,10 +97,10 @@ export default function Mantenimientos() {
                 area: 'COMUN',
                 departamentoId: '',
                 fechaInicio: format(new Date(), 'yyyy-MM-dd'),
-                responsable: '',
-                costo: ''
+                responsable: ''
             })
-            loadMantenimientos()
+            // Redirigir al detalle para subir fotos
+            navigate(`/mantenimientos/${response.data.data.id}`)
         } catch (error) {
             toast.error(error.response?.data?.message || 'Error creando mantenimiento')
         } finally {
@@ -418,29 +416,25 @@ export default function Mantenimientos() {
                                     />
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-4)' }}>
-                                    <div className="form-group">
-                                        <label className="form-label">Responsable</label>
-                                        <input
-                                            type="text"
-                                            className="form-input"
-                                            value={formData.responsable}
-                                            onChange={(e) => setFormData(p => ({ ...p, responsable: e.target.value }))}
-                                            placeholder="Nombre del responsable"
-                                        />
-                                    </div>
+                                <div className="form-group">
+                                    <label className="form-label">Responsable</label>
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        value={formData.responsable}
+                                        onChange={(e) => setFormData(p => ({ ...p, responsable: e.target.value }))}
+                                        placeholder="Nombre del responsable"
+                                    />
+                                </div>
 
-                                    <div className="form-group">
-                                        <label className="form-label">Costo ($)</label>
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            className="form-input"
-                                            value={formData.costo}
-                                            onChange={(e) => setFormData(p => ({ ...p, costo: e.target.value }))}
-                                            placeholder="0.00"
-                                        />
-                                    </div>
+                                <div style={{
+                                    padding: 'var(--spacing-3)',
+                                    background: 'var(--color-gray-50)',
+                                    borderRadius: 'var(--radius-md)',
+                                    fontSize: 'var(--font-size-sm)',
+                                    color: 'var(--color-gray-600)'
+                                }}>
+                                    💡 Podrás subir fotos de evidencia después de crear el mantenimiento.
                                 </div>
                             </div>
 
