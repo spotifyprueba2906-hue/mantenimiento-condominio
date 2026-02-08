@@ -1,7 +1,10 @@
 import axios from 'axios'
 
+// En producción usa la variable de entorno, en desarrollo usa el proxy
+const API_URL = import.meta.env.VITE_API_URL || '/api'
+
 const api = axios.create({
-    baseURL: '/api',
+    baseURL: API_URL,
     headers: {
         'Content-Type': 'application/json'
     }
@@ -33,7 +36,7 @@ api.interceptors.response.use(
 
             if (refreshToken) {
                 try {
-                    const response = await axios.post('/api/auth/refresh', { refreshToken })
+                    const response = await axios.post(`${API_URL}/auth/refresh`, { refreshToken })
                     const { accessToken, refreshToken: newRefreshToken } = response.data.data
 
                     localStorage.setItem('accessToken', accessToken)
