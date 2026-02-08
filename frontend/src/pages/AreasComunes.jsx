@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import axios from 'axios'
+import api from '../services/api'
 import {
     Building2,
     Calendar,
@@ -28,17 +28,19 @@ export default function AreasComunes() {
         try {
             const params = filtroTipo ? { tipo: filtroTipo } : {}
             const [mantsRes, resumenRes] = await Promise.all([
-                axios.get('/api/public/mantenimientos', { params }),
-                axios.get('/api/public/resumen')
+                api.get('/public/mantenimientos', { params }),
+                api.get('/public/resumen')
             ])
-            setMantenimientos(mantsRes.data.data)
-            setResumen(resumenRes.data.data)
+            setMantenimientos(mantsRes.data.data || [])
+            setResumen(resumenRes.data.data || null)
         } catch (error) {
             console.error('Error cargando datos:', error)
+            setMantenimientos([])
         } finally {
             setIsLoading(false)
         }
     }
+
 
     const getStatusBadge = (estado) => {
         const config = {
