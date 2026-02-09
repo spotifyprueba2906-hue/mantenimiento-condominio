@@ -109,7 +109,7 @@ const generarReportesSemana = async (req, res, next) => {
                 imagenesPorCategoria
             });
 
-            const filename = `reporte_general_${inicio.toISOString().split('T')[0]}`;
+            const filename = `reporte_general_${inicio.toISOString().split('T')[0]}.pdf`;
             const cloudinaryResult = await subirPDFaCloudinary(pdfBuffer, filename);
 
             const reporte = await prisma.reportePDF.create({
@@ -155,7 +155,7 @@ const generarReportesSemana = async (req, res, next) => {
                 imagenesPorCategoria
             });
 
-            const filename = `reporte_depto_${departamento.numero}_${inicio.toISOString().split('T')[0]}`;
+            const filename = `reporte_depto_${departamento.numero}_${inicio.toISOString().split('T')[0]}.pdf`;
             const cloudinaryResult = await subirPDFaCloudinary(pdfBuffer, filename);
 
             const reporte = await prisma.reportePDF.create({

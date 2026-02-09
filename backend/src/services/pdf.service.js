@@ -259,13 +259,15 @@ async function generarReportePDF(options) {
  * @returns {Promise<Object>} - Resultado de Cloudinary
  */
 async function subirPDFaCloudinary(pdfBuffer, filename) {
+    // Asegurar extensión .pdf para que Cloudinary sirva el Content-Type correcto
+    const publicId = filename.toLowerCase().endsWith('.pdf') ? filename : `${filename}.pdf`;
+
     return new Promise((resolve, reject) => {
         const uploadStream = cloudinary.uploader.upload_stream(
             {
                 resource_type: 'raw',
                 folder: 'mantenimiento/reportes',
-                public_id: filename,
-                format: 'pdf'
+                public_id: publicId
             },
             (error, result) => {
                 if (error) reject(error);
