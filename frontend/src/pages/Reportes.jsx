@@ -7,7 +7,8 @@ import {
     Calendar,
     Building2,
     RefreshCw,
-    Plus
+    Plus,
+    Trash2
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -52,6 +53,18 @@ export default function Reportes() {
             toast.error(error.response?.data?.message || 'Error generando reportes')
         } finally {
             setGenerando(false)
+        }
+
+        const handleEliminarReporte = async (id) => {
+            if (!window.confirm('¿Estás seguro de eliminar este reporte de forma permanente?')) return
+
+            try {
+                await api.delete(`/reportes/${id}`)
+                toast.success('Reporte eliminado correctamente')
+                loadReportes()
+            } catch (error) {
+                toast.error('Error eliminando reporte')
+            }
         }
     }
 
@@ -168,15 +181,27 @@ export default function Reportes() {
                                     <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-gray-400)' }}>
                                         Generado: {format(new Date(reporte.createdAt), 'dd MMM yyyy, HH:mm', { locale: es })}
                                     </span>
-                                    <a
-                                        href={reporte.urlPdf}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="btn btn-primary btn-sm"
-                                    >
-                                        <Download size={16} />
-                                        Descargar
-                                    </a>
+                                    <div style={{ display: 'flex', gap: 8 }}>
+                                        {user?.rol === 'ADMIN' && (
+                                            <button
+                                                onClick={() => handleEliminarReporte(reporte.id)}
+                                                className="btn btn-danger btn-sm"
+                                                title="Eliminar reporte"
+                                                style={{ background: '#ef4444', color: 'white', border: 'none' }}
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        )}
+                                        <a
+                                            href={reporte.urlPdf}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="btn btn-primary btn-sm"
+                                        >
+                                            <Download size={16} />
+                                            Descargar
+                                        </a>
+                                    </div>
                                 </div>
                             </div>
                         </div>

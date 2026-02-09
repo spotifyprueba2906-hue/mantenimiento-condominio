@@ -298,8 +298,73 @@ const obtenerReporte = async (req, res, next) => {
     }
 };
 
+/**
+ * Eliminar reporte (Admin)
+ */
+const eliminarReporte = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+
+        const reporte = await prisma.reportePDF.findUnique({
+            where: { id }
+        });
+
+        if (!reporte) {
+            return res.status(404).json({
+                success: false,
+                message: 'Reporte no encontrado'
+            });
+        }
+
+        // Eliminar de Cloudinary si tiene URL
+        if (reporte.urlPdf) {
+            try {
+                // Extraer public_id de la URL
+                // Formato esperado: .../upload/v12345/carpeta/archivo.pdf
+                // O .../upload/carpeta/archivo.pdf
+                const partes = reporte.urlPdf.split('/upload/');
+                if (partes.length > 1) {
+                    let path = partes[1];
+                    // Quitar versión si existe (v12345/)
+                    if (path.startsWith('v')) {
+                        const slashIndex = path.indexOf('/');
+                        if (slashIndex !== -1) {
+                            path = path.substring(slashIndex + 1);
+                        }
+                    }
+                    // El public_id en raw uploads incluye la extensión, NO se debe quitar
+                    // Pero Cloudinary es tricky. Si subí como 'raw' con extension '.pdf' en public_id,
+                    // el public_id ES 'mantenimiento/reportes/archivo.pdf'.
+                    // Y la URL termina en .pdf
+
+                    // Decodificar URL por si tiene espacios
+                    const publicId = decodeURIComponent(path);
+                    const { eliminarPDFdeCloudinary } = require('../services/pdf.service');
+                    await eliminarPDFdeCloudinary(publicId);
+                }
+            } catch (cloudError) {
+                console.error('Error eliminando archivo de Cloudinary:', cloudError);
+                // Continuamos para eliminar de BD aunque falle Cloudinary
+            }
+        }
+
+        // Eliminar de BD
+        await prisma.reportePDF.delete({
+            where: { id }
+        });
+
+        res.json({
+            success: true,
+            message: 'Reporte eliminado correctamente'
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     generarReportesSemana,
     listarReportes,
-    obtenerReporte
+    obtenerReporte,
+    eliminarReporte
 };

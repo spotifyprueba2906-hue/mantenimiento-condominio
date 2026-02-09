@@ -290,9 +290,27 @@ async function subirPDFaCloudinary(pdfBuffer, filename) {
     });
 }
 
+/**
+ * Elimina un PDF de Cloudinary
+ * @param {string} publicId - Public ID del archivo
+ */
+async function eliminarPDFdeCloudinary(publicId) {
+    return new Promise((resolve, reject) => {
+        cloudinary.uploader.destroy(
+            publicId,
+            { resource_type: 'raw' }, // Importante: especificar raw
+            (error, result) => {
+                if (error) reject(error);
+                else resolve(result);
+            }
+        );
+    });
+}
+
 module.exports = {
     generarReportePDF,
     subirPDFaCloudinary,
+    eliminarPDFdeCloudinary,
     EMPRESA_INFO,
     CATEGORIAS_LABEL
 };

@@ -50,4 +50,11 @@ router.get('/:id',
     reportesController.obtenerReporte
 );
 
+// Eliminar reporte (Solo Admin)
+router.delete('/:id',
+    authenticateToken,
+    requireAdmin,
+    reportesController.eliminarReporte
+);
+
 module.exports = router;
