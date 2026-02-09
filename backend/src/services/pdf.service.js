@@ -264,13 +264,14 @@ async function subirPDFaCloudinary(pdfBuffer, filename) {
     }
     console.log(`Subiendo PDF a Cloudinary: ${filename}, Tamaño: ${pdfBuffer.length} bytes`);
 
-    // Asegurar extensión .pdf
-    const publicId = filename.toLowerCase().endsWith('.pdf') ? filename : `${filename}.pdf`;
+    // Limpiar extensión si ya existe para evitar duplicados y asegurar formato limpio
+    const baseName = filename.replace(/\.pdf$/i, '');
+    const publicId = `${baseName}.pdf`;
 
     return new Promise((resolve, reject) => {
         const uploadStream = cloudinary.uploader.upload_stream(
             {
-                resource_type: 'auto', // Auto detecta PDF y asigna mime-type correcto
+                resource_type: 'raw', // Usar RAW para evitar que Cloudinary lo procese como imagen
                 folder: 'mantenimiento/reportes',
                 public_id: publicId
             },
