@@ -259,19 +259,29 @@ async function generarReportePDF(options) {
  * @returns {Promise<Object>} - Resultado de Cloudinary
  */
 async function subirPDFaCloudinary(pdfBuffer, filename) {
-    // Asegurar extensión .pdf para que Cloudinary sirva el Content-Type correcto
+    if (!pdfBuffer || pdfBuffer.length === 0) {
+        throw new Error('El buffer del PDF está vacío');
+    }
+    console.log(`Subiendo PDF a Cloudinary: ${filename}, Tamaño: ${pdfBuffer.length} bytes`);
+
+    // Asegurar extensión .pdf
     const publicId = filename.toLowerCase().endsWith('.pdf') ? filename : `${filename}.pdf`;
 
     return new Promise((resolve, reject) => {
         const uploadStream = cloudinary.uploader.upload_stream(
             {
-                resource_type: 'raw',
+                resource_type: 'auto', // Auto detecta PDF y asigna mime-type correcto
                 folder: 'mantenimiento/reportes',
                 public_id: publicId
             },
             (error, result) => {
-                if (error) reject(error);
-                else resolve(result);
+                if (error) {
+                    console.error('Error subiendo a Cloudinary:', error);
+                    reject(error);
+                } else {
+                    console.log('PDF subido correctamente:', result.secure_url);
+                    resolve(result);
+                }
             }
         );
 
