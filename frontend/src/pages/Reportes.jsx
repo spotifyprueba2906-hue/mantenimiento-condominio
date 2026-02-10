@@ -194,7 +194,7 @@ export default function Reportes() {
                                             </button>
                                         )}
                                         <a
-                                            href={reporte.urlPdf ? reporte.urlPdf.replace('/upload/', '/upload/fl_attachment/') : '#'}
+                                            href={reporte.urlPdf ? (reporte.urlPdf.includes('/image/upload/') ? reporte.urlPdf.replace('/upload/', '/upload/fl_attachment/') : reporte.urlPdf) : '#'}
                                             download={`Reporte_${reporte.tipo}_${reporte.id}.pdf`}
                                             target="_self"
                                             rel="noopener noreferrer"
