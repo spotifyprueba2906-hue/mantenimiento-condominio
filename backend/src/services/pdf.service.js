@@ -271,7 +271,7 @@ async function subirPDFaCloudinary(pdfBuffer, filename) {
     return new Promise((resolve, reject) => {
         const uploadStream = cloudinary.uploader.upload_stream(
             {
-                resource_type: 'raw', // Usar RAW para evitar que Cloudinary lo procese como imagen
+                resource_type: 'auto', // Cambiar a auto para evitar restricción "untrusted" de raw files
                 folder: 'mantenimiento/reportes',
                 public_id: publicId
             },
