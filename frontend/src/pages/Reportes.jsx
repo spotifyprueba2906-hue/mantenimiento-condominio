@@ -55,16 +55,17 @@ export default function Reportes() {
             setGenerando(false)
         }
 
-        const handleEliminarReporte = async (id) => {
-            if (!window.confirm('¿Estás seguro de eliminar este reporte de forma permanente?')) return
+    }
 
-            try {
-                await api.delete(`/reportes/${id}`)
-                toast.success('Reporte eliminado correctamente')
-                loadReportes()
-            } catch (error) {
-                toast.error('Error eliminando reporte')
-            }
+    const handleEliminarReporte = async (id) => {
+        if (!window.confirm('¿Estás seguro de eliminar este reporte de forma permanente?')) return
+
+        try {
+            await api.delete(`/reportes/${id}`)
+            toast.success('Reporte eliminado correctamente')
+            loadReportes()
+        } catch (error) {
+            toast.error('Error eliminando reporte')
         }
     }
 
@@ -194,6 +195,7 @@ export default function Reportes() {
                                         )}
                                         <a
                                             href={reporte.urlPdf}
+                                            download={`Reporte_${reporte.tipo}_${reporte.id}.pdf`}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="btn btn-primary btn-sm"
