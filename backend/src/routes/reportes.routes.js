@@ -44,6 +44,12 @@ router.get('/',
     reportesController.listarReportes
 );
 
+// Descargar PDF de un reporte (proxy a través del backend)
+router.get('/:id/download',
+    authenticateToken,
+    reportesController.descargarReporte
+);
+
 // Obtener un reporte específico
 router.get('/:id',
     authenticateToken,

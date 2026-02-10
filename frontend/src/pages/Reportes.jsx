@@ -69,6 +69,26 @@ export default function Reportes() {
         }
     }
 
+    const handleDescargar = async (reporteId, tipo) => {
+        try {
+            const response = await api.get(`/reportes/${reporteId}/download`, {
+                responseType: 'blob'
+            })
+
+            const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
+            const link = document.createElement('a')
+            link.href = url
+            link.download = `Reporte_${tipo}_${reporteId}.pdf`
+            document.body.appendChild(link)
+            link.click()
+            link.remove()
+            window.URL.revokeObjectURL(url)
+            toast.success('PDF descargado correctamente')
+        } catch (error) {
+            toast.error('Error descargando reporte')
+        }
+    }
+
     const getWeekRange = () => {
         const now = new Date()
         const day = now.getDay()
@@ -193,16 +213,13 @@ export default function Reportes() {
                                                 <Trash2 size={16} />
                                             </button>
                                         )}
-                                        <a
-                                            href={reporte.urlPdf ? (reporte.urlPdf.includes('/image/upload/') ? reporte.urlPdf.replace('/upload/', '/upload/fl_attachment/') : reporte.urlPdf) : '#'}
-                                            download={`Reporte_${reporte.tipo}_${reporte.id}.pdf`}
-                                            target="_self"
-                                            rel="noopener noreferrer"
+                                        <button
+                                            onClick={() => handleDescargar(reporte.id, reporte.tipo)}
                                             className="btn btn-primary btn-sm"
                                         >
                                             <Download size={16} />
                                             Descargar
-                                        </a>
+                                        </button>
                                     </div>
                                 </div>
                             </div>

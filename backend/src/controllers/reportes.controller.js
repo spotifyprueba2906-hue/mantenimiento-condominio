@@ -4,7 +4,7 @@
 // ============================================
 
 const prisma = require('../config/database');
-const { generarReportePDF, subirPDFaCloudinary, CATEGORIAS_LABEL } = require('../services/pdf.service');
+const { generarReportePDF, subirPDFaCloudinary, generarUrlDescargaPrivada, CATEGORIAS_LABEL } = require('../services/pdf.service');
 const { sendEmail, getReportePDFTemplate } = require('../config/email');
 
 /**
@@ -361,10 +361,69 @@ const eliminarReporte = async (req, res, next) => {
         next(error);
     }
 };
+/**
+ * Descargar reporte PDF (proxy a través del backend)
+ * Bypasses restricciones de entrega de Cloudinary
+ */
+const descargarReporte = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+
+        const reporte = await prisma.reportePDF.findUnique({
+            where: { id },
+            include: { departamento: true }
+        });
+
+        if (!reporte || !reporte.urlPdf) {
+            return res.status(404).json({
+                success: false,
+                message: 'Reporte no encontrado'
+            });
+        }
+
+        // Generar URL privada de descarga con credenciales API
+        const downloadUrl = generarUrlDescargaPrivada(reporte.urlPdf);
+        console.log('Descargando PDF via URL privada:', downloadUrl.substring(0, 100) + '...');
+
+        // Fetch el PDF desde Cloudinary y enviarlo al cliente
+        const https = require('https');
+        https.get(downloadUrl, (pdfRes) => {
+            if (pdfRes.statusCode !== 200) {
+                let body = '';
+                pdfRes.on('data', chunk => body += chunk);
+                pdfRes.on('end', () => {
+                    console.error('Error de Cloudinary:', pdfRes.statusCode, body);
+                    if (!res.headersSent) {
+                        res.status(502).json({ success: false, message: 'Error descargando PDF de Cloudinary' });
+                    }
+                });
+                return;
+            }
+
+            const depto = reporte.departamento ? `Depto_${reporte.departamento.numero}` : 'General';
+            const filename = `Reporte_${depto}_${reporte.semanaInicio.toISOString().split('T')[0]}.pdf`;
+
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+            if (pdfRes.headers['content-length']) {
+                res.setHeader('Content-Length', pdfRes.headers['content-length']);
+            }
+            pdfRes.pipe(res);
+        }).on('error', (err) => {
+            console.error('Error descargando PDF:', err);
+            if (!res.headersSent) {
+                next(err);
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
 
 module.exports = {
     generarReportesSemana,
     listarReportes,
     obtenerReporte,
-    eliminarReporte
+    eliminarReporte,
+    descargarReporte
 };

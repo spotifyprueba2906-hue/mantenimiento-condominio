@@ -264,9 +264,9 @@ async function subirPDFaCloudinary(pdfBuffer, filename) {
     }
     console.log(`Subiendo PDF a Cloudinary: ${filename}, Tamaño: ${pdfBuffer.length} bytes`);
 
-    // Limpiar extensión si ya existe para evitar duplicados y asegurar formato limpio
-    const baseName = filename.replace(/\.pdf$/i, '');
-    const publicId = `${baseName}.pdf`;
+    // Limpiar extensión - NO agregar .pdf al publicId
+    // Cloudinary con resource_type 'auto' detecta el formato y lo añade automáticamente
+    const publicId = filename.replace(/\.pdf$/i, '');
 
     return new Promise((resolve, reject) => {
         const uploadStream = cloudinary.uploader.upload_stream(
@@ -295,10 +295,27 @@ async function subirPDFaCloudinary(pdfBuffer, filename) {
  * @param {string} publicId - Public ID del archivo
  */
 async function eliminarPDFdeCloudinary(publicId) {
+    // Intentar eliminar como 'image' primero (resource_type: auto sube como image)
+    // Si falla, intentar como 'raw'
+    try {
+        const result = await new Promise((resolve, reject) => {
+            cloudinary.uploader.destroy(
+                publicId,
+                { resource_type: 'image' },
+                (error, result) => {
+                    if (error) reject(error);
+                    else resolve(result);
+                }
+            );
+        });
+        if (result.result === 'ok') return result;
+    } catch (e) {
+        // Intentar como raw
+    }
     return new Promise((resolve, reject) => {
         cloudinary.uploader.destroy(
             publicId,
-            { resource_type: 'raw' }, // Importante: especificar raw
+            { resource_type: 'raw' },
             (error, result) => {
                 if (error) reject(error);
                 else resolve(result);
@@ -307,10 +324,39 @@ async function eliminarPDFdeCloudinary(publicId) {
     });
 }
 
+/**
+ * Genera una URL privada de descarga que usa credenciales API
+ * Bypass las restricciones de entrega de Cloudinary
+ * @param {string} urlPdf - URL pública del PDF en Cloudinary
+ * @returns {string} URL privada de descarga
+ */
+function generarUrlDescargaPrivada(urlPdf) {
+    const partes = urlPdf.split('/upload/');
+    if (partes.length < 2) throw new Error('URL de PDF inválida');
+
+    // Quitar versión (v12345/)
+    let pathPart = partes[1].replace(/^v\d+\//, '');
+
+    // Separar public_id y formato
+    const lastDot = pathPart.lastIndexOf('.');
+    const publicId = lastDot > 0 ? pathPart.substring(0, lastDot) : pathPart;
+    const format = lastDot > 0 ? pathPart.substring(lastDot + 1) : 'pdf';
+
+    // Determinar resource_type de la URL
+    const resourceType = urlPdf.includes('/image/upload/') ? 'image' : 'raw';
+
+    return cloudinary.utils.private_download_url(publicId, format, {
+        resource_type: resourceType,
+        type: 'upload',
+        attachment: true
+    });
+}
+
 module.exports = {
     generarReportePDF,
     subirPDFaCloudinary,
     eliminarPDFdeCloudinary,
+    generarUrlDescargaPrivada,
     EMPRESA_INFO,
     CATEGORIAS_LABEL
 };
